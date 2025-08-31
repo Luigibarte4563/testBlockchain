@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UpdatableValue DApp</title>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f2f5;
+            margin: 0;
+            text-align: center;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 500px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 1.1em;
+            color: #555;
+            line-height: 1.6;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-top: 10px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        input {
+            width: calc(100% - 24px);
+            padding: 12px;
+            margin-top: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+        #message {
+            margin-top: 20px;
+            font-weight: bold;
+            color: #dc3545;
+        }
+        .success {
+            color: #28a745;
+        }
+        .wallet-info {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #777;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Updatable Value DApp</h1>
+    <p>Connect your wallet to interact with the smart contract.</p>
+
+    <div id="status">
+        <p>Current value: <strong id="currentValue">...</strong></p>
+        <p>Contract Owner: <strong id="contractOwner">...</strong></p>
+    </div>
+
+    <button id="connectButton">Connect Wallet</button>
+
+    <div id="updateSection" class="hidden">
+        <input type="number" id="newValueInput" placeholder="Enter new value">
+        <button id="updateButton">Update Value</button>
+    </div>
+
+    <p id="message"></p>
+    
+    <div class="wallet-info">
+        <p>Your connected account: <span id="userAccount">Not connected</span></p>
+    </div>
+</div>
+
+<script>
+    // Replace with your actual deployed contract address
+    const contractAddress = "0xd9145CCE52D386f254917e481eB44e9943F39138"; 
+    
+    // Replace with your actual contract ABI
+    const contractABI = [
+        "function value() public view returns (uint256)",
+        "function updateValue(uint256 _newValue) public",
+        "function getOwner() public view returns (address)",
+        "event ValueUpdated(uint256 oldValue, uint256 newValue, address updater)"
+    ];
+
+    let provider;
+    let signer;
+    let contract;
+
+    const connectButton = document.getElementById("connectButton");
+    const updateSection = document.getElementById("updateSection");
+    const updateButton = document.getElementById("updateButton");
+    const newValueInput = document.getElementById("newValueInput");
+    const messageDisplay = document.getElementById("message");
+    const userAccountDisplay = document.getElementById("userAccount");
+    const currentValueDisplay = document.getElementById("currentValue");
+    const contractOwnerDisplay = document.getElementById("contractOwner");
+
+    // Check for an Ethereum provider (like MetaMask) on page load
+    if (typeof window.ethereum !== 'undefined') {
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        // This is necessary to handle account changes in MetaMask
+        window.ethereum.on('accountsChanged', handleAccountsChanged);
+        window.ethereum.on('chainChanged', () => window.location.reload());
+    } else {
+        messageDisplay.textContent = "MetaMask or another wallet is not installed. Please install one to use this DApp.";
+        connectButton.disabled = true;
+    }
+
+    // Event listener for the Connect button
+    connectButton.addEventListener("click", async () => {
+        try {
+            await provider.send("eth_requestAccounts", []);
+            await initializeDapp();
+        } catch (error) {
+            console.error(error);
+            messageDisplay.textContent = "Connection failed. Please check your wallet.";
+        }
+    });
+
+    // Event listener for the Update button
+    updateButton.addEventListener("click", async () => {
+        const newValue = newValueInput.value;
+        if (newValue === "" || isNaN(newValue)) {
+            messageDisplay.textContent = "Please enter a valid number.";
+            messageDisplay.className = ""; // Reset class to remove success styling
+            return;
+        }
+        
+        messageDisplay.textContent = "Updating value... Please confirm the transaction in your wallet.";
+        messageDisplay.className = "";
+
+        try {
+            // Send the transaction to the smart contract
+            const tx = await contract.updateValue(newValue);
+            await tx.wait(); // Wait for the transaction to be mined
+            messageDisplay.textContent = "Value updated successfully!";
+            messageDisplay.className = "success";
+            await refreshData();
+        } catch (error) {
+            console.error(error);
+            const errorMessage = error.message.includes("Only the owner can call this function") ?
+                                 "You are not the contract owner. Update failed." : 
+                                 "Transaction failed. See console for details.";
+            messageDisplay.textContent = errorMessage;
+            messageDisplay.className = "";
+        }
+    });
+
+    // Function to initialize the DApp after a wallet is connected
+    async function initializeDapp() {
+        signer = provider.getSigner();
+        contract = new ethers.Contract(contractAddress, contractABI, signer);
+        connectButton.textContent = "Wallet Connected ✅";
+        connectButton.disabled = true;
+        await refreshData();
+        setupEventListeners();
+    }
+
+    // Function to handle account changes in MetaMask
+    async function handleAccountsChanged(accounts) {
+        if (accounts.length === 0) {
+            console.log('Please connect to MetaMask.');
+            window.location.reload();
+        } else {
+            await refreshData();
+        }
+    }
+
+    // Function to fetch and display data from the contract
+    async function refreshData() {
+        const userAddress = await signer.getAddress();
+        userAccountDisplay.textContent = userAddress;
+
+        const ownerAddress = await contract.getOwner();
+        contractOwnerDisplay.textContent = ownerAddress;
+
+        const currentValue = await contract.value();
+        currentValueDisplay.textContent = currentValue.toString();
+
+        // Show the update section only if the connected user is the owner
+        if (userAddress.toLowerCase() === ownerAddress.toLowerCase()) {
+            updateSection.classList.remove("hidden");
+            messageDisplay.textContent = "You are the owner. You can update the value.";
+            messageDisplay.className = "success";
+        } else {
+            updateSection.classList.add("hidden");
+            messageDisplay.textContent = "You are not the owner. You cannot update the value.";
+            messageDisplay.className = "";
+        }
+    }
+
+    // Function to listen for the ValueUpdated event
+    function setupEventListeners() {
+        contract.on("ValueUpdated", (oldValue, newValue, updater) => {
+            console.log(`Value updated from ${oldValue.toString()} to ${newValue.toString()} by ${updater}`);
+            // This is a great way to automatically refresh the UI
+            refreshData(); 
+            messageDisplay.textContent = `Event received: Value updated to ${newValue.toString()}.`;
+            messageDisplay.className = "success";
+        });
+    }
+
+    // Initial load
+    refreshData();
+
+</script>
+
+</body>
+</html>
