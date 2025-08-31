@@ -1,0 +1,68 @@
+{
+	"compiler": {
+		"version": "0.8.17+commit.8df45f5f"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [],
+				"name": "deposit",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getContractBalance",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"details": "This contract does not handle wallet connection itself. It defines functions that a frontend application calls using a connected wallet.",
+			"kind": "dev",
+			"methods": {},
+			"title": "A simple contract to demonstrate wallet interaction",
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/walletConnect.sol": "WalletContract"
+		},
+		"evmVersion": "london",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/walletConnect.sol": {
+			"keccak256": "0x30758ea65901503644af9e77dd169e88b4a897c33ea60638ce45708bbe351b37",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://96e016e5baae375a4f92a1bfab15881422c99404b17ba3eb9240a308b95c1480",
+				"dweb:/ipfs/QmfMvJoBNZsYNyxCtp1mi7SP3DPoXLAe2gxUsczrHCAQDm"
+			]
+		}
+	},
+	"version": 1
+}
